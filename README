@@ -1,0 +1,16 @@
+How to run this on your computer:
+Make a github account here
+Download Node.js
+Just use the installer lol
+Download visual studio code
+This is the github repository for letslink
+Go to the green dropdown button and download the repository as a zip file
+Extract all the content of the zip file into your laptop
+On visual studio code, go to file -> open folder -> and the open the letlink folder you extracted
+Open a terminal tab on your visual studio code
+View → terminal
+Type up these things:
+Npm install
+Npm run dev
+After typing npm run dev you should get a localhost link that you can open in your browser and use lets
+link!
