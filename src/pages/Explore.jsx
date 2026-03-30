@@ -10,7 +10,7 @@ const DISTANCE_FILTERS = ['Within 1 km', 'Within 2 km', 'Within 5 km']
 const CATEGORY_FILTERS = ['All event types', 'Sports', 'Events', 'Food', 'Drinks', 'Music', 'Cafe']
 const BUDGET_FILTERS = ['All budgets', 'Low', 'Medium', 'High']
 
-export default function Explore({ mode, groups, favoriteVenueIds, onToggleFavorite, onAttendVenue }) {
+export default function Explore({ mode, groups, favoriteVenueIds, onToggleFavorite, onAttendVenue, onUpdateGroup }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('Today')
@@ -52,6 +52,48 @@ export default function Explore({ mode, groups, favoriteVenueIds, onToggleFavori
   const handleCheckAvailability = () => {
     setCheckedAvailability(true)
     setToast('Availability checked. Group looks ready to invite.')
+  }
+
+  const hasEnoughAvailability = (group) => {
+    const memberCount = Array.isArray(group.memberNames) && group.memberNames.length > 0
+      ? group.memberNames.length
+      : Object.keys(group.availability || {}).length
+    if (memberCount === 0) return false
+
+    const availableCount = Object.values(group.availability || {}).filter(Boolean).length
+    const minimumNeeded = Math.max(1, Math.ceil(memberCount / 2))
+    return availableCount >= minimumNeeded
+  }
+
+  const handleSwitchToGroupPlan = (venue, groupId) => {
+    const targetGroupId = groupId || selectedGroupId
+    if (!targetGroupId) {
+      navigate('/groups')
+      return
+    }
+
+    const group = groups.find(g => g.id === targetGroupId)
+    if (!group) {
+      navigate('/groups')
+      return
+    }
+
+    const groupHasPlan = !!group.planBooked
+    const enoughAvailability = hasEnoughAvailability(group)
+
+    if (!groupHasPlan && enoughAvailability && typeof onUpdateGroup === 'function') {
+      onUpdateGroup(group.id, {
+        upcoming: venue.date || 'Today',
+        planBooked: { ...venue, date: venue.date || 'Today' },
+      })
+      setToast(`${venue.name} is now the group plan for ${group.name}.`)
+    } else if (groupHasPlan) {
+      setToast(`${group.name} already has a planned activity.`)
+    } else if (!enoughAvailability) {
+      setToast(`Not enough availability yet in ${group.name}.`)
+    }
+
+    navigate(`/group/${group.id}`)
   }
 
   return (
@@ -190,7 +232,7 @@ export default function Explore({ mode, groups, favoriteVenueIds, onToggleFavori
               },
             },
           })}
-          onPlanWithGroup={() => navigate(selectedGroupId ? `/group/${selectedGroupId}` : '/groups')}
+          onPlanWithGroup={(groupId) => handleSwitchToGroupPlan(selectedVenue, groupId)}
           onClose={() => {
             setSelectedVenue(null)
             setCheckedAvailability(false)
@@ -220,6 +262,7 @@ function VenueModal({
 }) {
   const [selectedFriendId, setSelectedFriendId] = useState(friendOptions[0]?.id || '')
   const [showFriendPicker, setShowFriendPicker] = useState(false)
+  const [showGroupPicker, setShowGroupPicker] = useState(false)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -260,9 +303,21 @@ function VenueModal({
             Want to go with someone else?
           </div>
 
+          {!attending && (
+            <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+              Confirm your attendance first to invite a friend or switch to group plan.
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-            <button className="btn btn-outline" onClick={() => setShowFriendPicker(v => !v)}>Invite 1 Friend</button>
-            <button className="btn btn-outline" onClick={onPlanWithGroup}>Switch to Group Plan</button>
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowFriendPicker(v => !v)}
+              disabled={!attending}
+            >
+              Invite 1 Friend
+            </button>
+            <button className="btn btn-outline" onClick={() => setShowGroupPicker(v => !v)} disabled={!attending}>Switch to Group Plan</button>
           </div>
 
           {showFriendPicker && (
@@ -285,7 +340,7 @@ function VenueModal({
             </div>
           )}
 
-          {mode === 'group' && (
+          {showGroupPicker && (
             <div style={{
               background: 'var(--card)',
               border: '1px solid var(--border)',
@@ -293,7 +348,7 @@ function VenueModal({
               padding: '12px',
               marginBottom: 8,
             }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Plan with an existing group</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Choose a group for this plan</div>
               <select className="form-input form-select" value={selectedGroupId} onChange={e => setSelectedGroupId(e.target.value)} style={{ marginBottom: 8 }}>
                 {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -303,6 +358,9 @@ function VenueModal({
                   Availability checked for this group. Ready to invite.
                 </div>
               )}
+              <button className="btn btn-primary btn-full" onClick={() => onPlanWithGroup(selectedGroupId)} style={{ marginTop: 8 }} disabled={!selectedGroupId}>
+                Confirm Group Plan
+              </button>
             </div>
           )}
         </div>

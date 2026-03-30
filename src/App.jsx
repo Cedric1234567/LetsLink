@@ -94,18 +94,20 @@ export default function App() {
               points={totalPoints}
               attendanceHistory={attendanceHistory}
               onRemoveActivity={handleRemoveActivity}
+              onSwitchMode={setMode}
             />
           }/>
           <Route path="/groups"       element={<Groups groups={groups} mode={mode} />} />
-          <Route path="/create-group" element={<CreateGroup onCreateGroup={handleCreateGroup} />} />
-          <Route path="/join-group"   element={<JoinGroup  onJoinGroup={handleJoinGroup} />} />
-          <Route path="/group/:id"    element={<GroupDetail groups={groups} onUpdateGroup={handleUpdateGroup} />} />
+          <Route path="/create-group" element={<CreateGroup onCreateGroup={handleCreateGroup} userName={user} />} />
+          <Route path="/join-group"   element={<JoinGroup  onJoinGroup={handleJoinGroup} userName={user} />} />
+          <Route path="/group/:id"    element={<GroupDetail groups={groups} onUpdateGroup={handleUpdateGroup} userName={user} />} />
           <Route path="/explore"      element={<Explore
             mode={mode}
             groups={groups}
             favoriteVenueIds={favoriteVenueIds}
             onToggleFavorite={handleToggleFavorite}
             onAttendVenue={handleAttendVenue}
+            onUpdateGroup={handleUpdateGroup}
           />} />
           <Route path="/chat"         element={<Chat />} />
           <Route path="/rewards"      element={<Rewards
@@ -120,7 +122,7 @@ export default function App() {
             mode={mode}
             points={totalPoints}
             redeemedCount={redeemedRewardIds.length}
-            onSwitchMode={setMode}
+            redeemedRewardIds={redeemedRewardIds}
             onLogout={() => { setUser(null); setMode(null) }}
           />} />
         </Routes>

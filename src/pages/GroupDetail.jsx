@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { VENUES } from '../data/hardcoded'
+import { CURRENT_USER, VENUES } from '../data/hardcoded'
 import Toast from '../components/Toast'
 
 const DATE_OPTIONS = ['Today', 'Tomorrow']
@@ -8,7 +8,7 @@ const TIME_WINDOWS = ['After 5:00 PM', 'After 6:00 PM', '7:00 PM - 9:00 PM']
 const BUDGET_OPTIONS = ['Any', 'Low', 'Medium', 'High']
 const CATEGORY_OPTIONS = ['Any', 'Sports', 'Events', 'Food', 'Drinks', 'Music', 'Cafe']
 
-export default function GroupDetail({ groups, onUpdateGroup }) {
+export default function GroupDetail({ groups, onUpdateGroup, userName }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const group = groups.find(g => g.id === id)
@@ -19,25 +19,33 @@ export default function GroupDetail({ groups, onUpdateGroup }) {
   const [timeFilter, setTimeFilter] = useState('After 5:00 PM')
   const [budgetFilter, setBudgetFilter] = useState('Any')
   const [categoryFilter, setCategoryFilter] = useState('Any')
+  const activeUserName = (userName || CURRENT_USER.name || 'You').trim()
 
   const allMembers = useMemo(() => {
     if (!group) return []
-    const names = new Set([...(group.memberNames || []), ...Object.keys(group.availability || {}), 'You'])
-    return Array.from(names)
+    if (Array.isArray(group.memberNames) && group.memberNames.length > 0) {
+      return group.memberNames
+    }
+    return Object.keys(group.availability || {})
   }, [group])
 
   const [memberResponses, setMemberResponses] = useState(() => {
     const seed = {}
     if (!group) return seed
-    const names = new Set([...(group.memberNames || []), ...Object.keys(group.availability || {}), 'You'])
-    Array.from(names).forEach((name, idx) => {
-      if (name === 'You') seed[name] = 'pending'
-      else seed[name] = idx % 3 === 0 ? 'accepted' : idx % 3 === 1 ? 'declined' : 'pending'
+    const names = Array.isArray(group.memberNames) && group.memberNames.length > 0
+      ? group.memberNames
+      : Object.keys(group.availability || {})
+    names.forEach((name) => {
+      const isAvailable = !!group.availability?.[name]
+      seed[name] = name.toLowerCase() === activeUserName.toLowerCase()
+        ? 'pending'
+        : (isAvailable ? 'accepted' : 'pending')
     })
     return seed
   })
 
   const [selectedVenueId, setSelectedVenueId] = useState(null)
+  const [myVotedVenueId, setMyVotedVenueId] = useState(null)
 
   if (!group) {
     return (
@@ -52,7 +60,7 @@ export default function GroupDetail({ groups, onUpdateGroup }) {
     )
   }
 
-  const availabilityEntries = Object.entries(group.availability || {})
+  const availabilityEntries = allMembers.map(name => [name, !!group.availability?.[name]])
   const available = availabilityEntries.filter(([, v]) => !!v).length
   const hasPlannedActivity = !!group.planBooked
 
@@ -72,8 +80,50 @@ export default function GroupDetail({ groups, onUpdateGroup }) {
 
   const selectedVenue = venueSuggestions.find(v => v.id === selectedVenueId) || venueSuggestions[0]
 
+  const myMemberName = allMembers.find(name => name.toLowerCase() === activeUserName.toLowerCase())
+    || (allMembers.includes('You') ? 'You' : allMembers[0])
+
+  const votesByVenue = useMemo(() => {
+    const counts = {}
+    venueSuggestions.forEach(v => { counts[v.id] = 0 })
+    if (venueSuggestions.length === 0) return counts
+
+    const stableIndexFromName = (name, len) => {
+      const total = Array.from(name).reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+      return total % len
+    }
+
+    allMembers.forEach((memberName) => {
+      if (memberResponses[memberName] !== 'accepted') return
+
+      if (memberName === myMemberName) {
+        if (myVotedVenueId && counts[myVotedVenueId] !== undefined) counts[myVotedVenueId] += 1
+        return
+      }
+
+      const idx = stableIndexFromName(memberName, venueSuggestions.length)
+      const autoVoteVenueId = venueSuggestions[idx].id
+      counts[autoVoteVenueId] += 1
+    })
+
+    return counts
+  }, [allMembers, memberResponses, myMemberName, myVotedVenueId, venueSuggestions])
+
   const markMyVote = (response) => {
-    setMemberResponses(prev => ({ ...prev, You: response }))
+    if (!myMemberName) return
+
+    if (response === 'accepted') {
+      if (!selectedVenueId) {
+        setToast('Select an event option first, then tap Accept Option.')
+        return
+      }
+      setMyVotedVenueId(selectedVenueId)
+      setMemberResponses(prev => ({ ...prev, [myMemberName]: 'accepted' }))
+      return
+    }
+
+    setMyVotedVenueId(null)
+    setMemberResponses(prev => ({ ...prev, [myMemberName]: 'declined' }))
   }
 
   const finalizeDecision = () => {
@@ -273,7 +323,6 @@ export default function GroupDetail({ groups, onUpdateGroup }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
             {venueSuggestions.map(v => {
               const isSelected = selectedVenueId === v.id
-              const votedMembers = Math.max(1, accepted.length)
               return (
                 <button
                   key={v.id}
@@ -293,7 +342,7 @@ export default function GroupDetail({ groups, onUpdateGroup }) {
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{v.distance}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 3 }}>{v.category} - {v.costLabel}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{votedMembers} of {allMembers.length} members voted for options</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{votesByVenue[v.id] || 0} of {allMembers.length} members voted for this option</div>
                 </button>
               )
             })}

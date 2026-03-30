@@ -1,29 +1,54 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Toast from '../components/Toast'
+import { CHATS_DATA, CURRENT_USER } from '../data/hardcoded'
 
-export default function CreateGroup({ onCreateGroup }) {
+export default function CreateGroup({ onCreateGroup, userName }) {
   const navigate = useNavigate()
+  const activeUserName = (userName || CURRENT_USER.name || 'You').trim()
   const [name, setName] = useState('')
   const [searchOrigin, setSearchOrigin] = useState('My current location')
-  const [addMethod, setAddMethod] = useState('Share Link')
-  const [memberRange, setMemberRange] = useState(6)
+  const [selectedFriendIds, setSelectedFriendIds] = useState([])
   const [costTier, setCostTier] = useState('Low')
   const [distance, setDistance] = useState('Distance')
   const [startWindow, setStartWindow] = useState('After 5:00 PM')
   const [toast, setToast] = useState(null)
 
+  const friendOptions = CHATS_DATA.filter(chat => !chat.isGroup && chat.name.toLowerCase() !== activeUserName.toLowerCase())
+  const selectedFriends = friendOptions.filter(friend => selectedFriendIds.includes(friend.id))
+  const totalMembers = selectedFriendIds.length + 1
+
+  const toggleFriend = (friendId) => {
+    setSelectedFriendIds(prev => prev.includes(friendId)
+      ? prev.filter(id => id !== friendId)
+      : [...prev, friendId])
+  }
+
   const handleCreate = () => {
     if (!name.trim()) { setToast('Please enter a group name'); return }
+
+    const memberEntries = [{ name: activeUserName, emoji: '⭐' }, ...selectedFriends.map(friend => ({ name: friend.name, emoji: friend.emoji }))]
+    const uniqueMemberEntries = memberEntries.filter((entry, index, arr) =>
+      arr.findIndex(item => item.name.toLowerCase() === entry.name.toLowerCase()) === index
+    )
+    const memberNames = uniqueMemberEntries.map(entry => entry.name)
+    const memberEmojis = uniqueMemberEntries.map(entry => entry.emoji)
+    const availability = memberNames.reduce((acc, memberName, index) => {
+      // Creator is available immediately; invited friends default to available in Friends mode.
+      acc[memberName] = true
+      return acc
+    }, {})
+
+    const currentMembers = memberNames.length
     const newGroup = {
       id: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
       name: name.trim(),
       upcoming: 'N/A',
-      maxMembers: memberRange,
-      currentMembers: 1,
-      memberNames: ['Lihi'],
-      memberEmojis: ['⭐'],
-      availability: { Lihi: true, Josh: false, Jess: false },
+      maxMembers: totalMembers,
+      currentMembers,
+      memberNames,
+      memberEmojis,
+      availability,
       planBooked: null,
       defaultStartWindow: startWindow,
       budget: costTier,
@@ -71,28 +96,24 @@ export default function CreateGroup({ onCreateGroup }) {
         </div>
       </div>
 
-      {/* Add members */}
       <div className="form-group">
-        <label className="form-label">Add members:</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {['Share Link', 'Friends'].map(m => (
-            <button key={m}
-              className={`btn btn-sm ${addMethod === m ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setAddMethod(m)}>
-              {m}
-            </button>
-          ))}
+        <label className="form-label">Add friends by clicking their names</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {friendOptions.map(friend => {
+            const selected = selectedFriendIds.includes(friend.id)
+            return (
+              <button
+                key={friend.id}
+                className={`btn btn-sm ${selected ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => toggleFriend(friend.id)}
+              >
+                {friend.emoji} {friend.name}
+              </button>
+            )
+          })}
         </div>
-      </div>
-
-      {/* Member range */}
-      <div className="form-group">
-        <label className="form-label">Number of Members: 3–{memberRange}</label>
-        <input type="range" min="3" max="20" value={memberRange}
-          onChange={e => setMemberRange(Number(e.target.value))}
-          style={{ marginTop: 8 }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-          <span>3</span><span>20</span>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+          Group size updates automatically from your friend selection. Current group: {totalMembers}
         </div>
       </div>
 

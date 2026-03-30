@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { INVITES } from '../data/hardcoded'
+import { CURRENT_USER, INVITES } from '../data/hardcoded'
 import Toast from '../components/Toast'
 
-export default function JoinGroup({ onJoinGroup }) {
+export default function JoinGroup({ onJoinGroup, userName }) {
   const navigate = useNavigate()
+  const activeUserName = (userName || CURRENT_USER.name || 'You').trim()
   const [search, setSearch] = useState('')
   const [invites, setInvites] = useState(INVITES)
   const [toast, setToast] = useState(null)
@@ -12,15 +13,20 @@ export default function JoinGroup({ onJoinGroup }) {
   const [intFilter, setIntFilter] = useState(false)
 
   const handleAccept = (invite) => {
+    const memberNames = [activeUserName, ...Array.from({ length: invite.current }, (_, i) => `Member ${i + 1}`)]
+    const availability = memberNames.reduce((acc, name, index) => {
+      acc[name] = index === 0
+      return acc
+    }, {})
     const newGroup = {
       id: invite.id,
       name: invite.name,
       upcoming: 'N/A',
       maxMembers: invite.max,
-      currentMembers: invite.current + 1,
-      memberNames: ['Lihi'],
-      memberEmojis: ['⭐', '🎨', '🎵', '🌿'],
-      availability: {},
+      currentMembers: memberNames.length,
+      memberNames,
+      memberEmojis: ['⭐', ...Array.from({ length: Math.max(0, memberNames.length - 1) }, () => '👤')],
+      availability,
       planBooked: null,
     }
     onJoinGroup(newGroup)

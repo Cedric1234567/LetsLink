@@ -23,7 +23,7 @@ export default function Rewards({ points, earnedPoints, attendanceCount, redeeme
       return
     }
     onRedeemReward(reward.id)
-    setToast(`${reward.title} redeemed.`)
+    setToast(`${reward.title} redeemed. You can find your coupon in Profile.`)
   }
 
   return (
@@ -69,6 +69,20 @@ export default function Rewards({ points, earnedPoints, attendanceCount, redeeme
         }}>
           Redemption flow: confirm activities in Explore, earn points, then redeem below.
         </div>
+
+        {redeemedRewardIds.length > 0 && (
+          <div style={{
+            background: 'var(--card)',
+            borderRadius: 12,
+            border: '1px solid #F3B5B0',
+            padding: '10px 12px',
+            fontSize: 12,
+            color: '#B42318',
+            marginBottom: 14,
+          }}>
+            Coupons ready: open <strong>Profile</strong> and check <strong>My Coupons</strong> to use redeemed rewards.
+          </div>
+        )}
 
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
           Redeem rewards

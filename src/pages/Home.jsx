@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 
-export default function Home({ groups, userName, mode, points, attendanceHistory, onRemoveActivity }) {
+export default function Home({ groups, userName, mode, points, attendanceHistory, onRemoveActivity, onSwitchMode }) {
   const navigate = useNavigate()
   const isGroup = mode === 'group'
   const [expandedActivityId, setExpandedActivityId] = useState(null)
@@ -38,8 +38,8 @@ export default function Home({ groups, userName, mode, points, attendanceHistory
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             Current mode: <strong style={{ color: 'var(--text)' }}>{isGroup ? 'Group' : 'Solo'}</strong>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/profile')}>
-            Change in Profile
+          <button className="btn btn-ghost btn-sm" onClick={() => onSwitchMode(isGroup ? 'solo' : 'group')}>
+            Switch to {isGroup ? 'Solo' : 'Group'} mode
           </button>
         </div>
       </div>
